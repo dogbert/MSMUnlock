@@ -147,6 +147,10 @@ def sendBootloader(ser, bootloader):
 	bufferSize   = 0x3f9
 	address      = startAddress
 
+	statinfo = os.stat(bootloader)
+	bootloaderSize = statinfo.st_size
+	written = 0
+
 	f = open(bootloader, "rb")
 	while 1:
 		buffer = f.read(bufferSize)
@@ -154,6 +158,8 @@ def sendBootloader(ser, bootloader):
 		if ord(r[1]) != 0x02:
 			print "Error while sending bootloader: write memory failed at %08x" % address
 			return False
+		written += len(buffer)
+		print "\r %d %% complete" % (written / bootloaderSize * 100.0)
 		sleep(0.1)
 		address += bufferSize
 		if len(buffer) < bufferSize:
@@ -248,11 +254,11 @@ def checkDiagPort(port):
 		result = False
 	return result
 
-def findSerialPorts():
+def findSerialPorts(pattern):
 	appPort = None
 	diagPort = None
 	for i in range(0, 255):
-		port = 'COM%d' % i
+		port = pattern % i
 		if (appPort != None) and (diagPort != None):
 			break
 		if appPort == None:
@@ -290,6 +296,7 @@ def main():
 	appPort  = None
 	baud	 = 115200
 	Init	 = True
+	didProbe = False
 
 	for o, a in opts:
 		if o in ("-d", "--diagPort"):
@@ -309,9 +316,14 @@ def main():
 	print "Bootloader OK, proceeding..."
 	print ""
 
+	if (os.name == 'posix') and ((appPort == None) or (diagPort == None)):
+		print "Searching for serial ports..."
+		(appPort, diagPort) = findSerialPorts("/dev/ttyHS%d")
+		didProbe = True
 	if (os.name == 'nt') and ((appPort == None) or (diagPort == None)):
 		print "Searching for serial ports..."
-		(appPort, diagPort) = findSerialPorts()
+		(appPort, diagPort) = findSerialPorts("COM%d")
+		didProbe = True
 
 	if appPort == None:
 		print "Failed to find the application port. Please shutdown the device software."
@@ -324,6 +336,9 @@ def main():
 	print "Application serial port: %s" % appPort
 	print "Diagnostics serial port: %s" % diagPort
 	print ""
+	if didProbe == True:
+		print "Launch again with:\n\t%s --appPort %s --diagPort %s" % (sys.argv[0], appPort, diagPort)
+		sys.exit(0)
 
 	print "Checking software version..."
 	checkSoftwareVersion(appPort)
