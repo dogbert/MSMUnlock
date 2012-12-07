@@ -159,7 +159,7 @@ def sendBootloader(ser, bootloader):
 			print "Error while sending bootloader: write memory failed at %08x" % address
 			return False
 		written += len(buffer)
-		print "\r %d %% complete" % (written / bootloaderSize * 100.0)
+		print "\r %d %% complete" % (100.0 * written / bootloaderSize)
 		sleep(0.1)
 		address += bufferSize
 		if len(buffer) < bufferSize:
@@ -236,7 +236,10 @@ def unlockModem(appPort, unlockCode):
 def checkAppPort(port):
 	try:
 		ser = serial.Serial(port, 115200, timeout=2)
-		ser.write('\r\nAT+CGSN\r\n')
+		ser.write("\r\nAT\r\n")
+		sleep(0.5)
+		ser.flushInput()
+		ser.write('AT+CGSN\r\n')
 		response = ser.read(13+28)
 		result = (response.find("DR") != -1)
 		ser.close()
@@ -257,7 +260,7 @@ def checkDiagPort(port):
 def findSerialPorts(pattern):
 	appPort = None
 	diagPort = None
-	for i in range(0, 255):
+	for i in range(255):
 		port = pattern % i
 		if (appPort != None) and (diagPort != None):
 			break
